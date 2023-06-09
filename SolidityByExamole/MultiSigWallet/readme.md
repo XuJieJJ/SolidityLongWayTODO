@@ -234,38 +234,39 @@ function getOwners() public  view   returns(address [] memory){
 ["0x5B38Da6a701c568545dCfcB03FcB875f56beddC4","0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2","0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db"]
 ```
 
-![image-20230609150855731](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609150855731.png)
+![image-20230609150855731](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609150855731.png?raw=true)
 
-![image-20230609151221450](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151221450.png)
+![image-20230609151221450](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151221450.png?raw=true)
 
 创建交易给第四个地址转账
 
-![image-20230609151405733](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151405733.png)
+![image-20230609151405733](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151405733.png?raw=true)
 
-![image-20230609151420943](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151420943.png)
+![image-20230609151420943](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151420943.png?raw=true)
 
 此时查询并验证一次执行交易
 
-![image-20230609151458075](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151458075.png)
+![image-20230609151458075](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151458075.png?raw=true)
 
-![image-20230609151647657](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151647657.png)
+![image-20230609151647657](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151647657.png?raw=true)
 
 进行签名流程，使用第一个账户进行签名
 
-![image-20230609151820602](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151820602.png)
+![image-20230609151820602](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151820602.png?raw=true)
 
 再次执行交易
 
-![image-20230609151856245](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151856245.png)
+![image-20230609151856245](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151856245.png?raw=true)
 
 此时切换到第一个账户进行签名
 
-![image-20230609151924527](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151924527.png)
+![image-20230609151924527](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151924527.png?raw=true)
 
-![image-20230609151948065](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609151948065.png)
+![image-20230609151948065](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609151948065.png?raw=true)
 
 验证执行交易
 
-![image-20230609152149132](D:\workPlace\study\solidity\SolidityExample\SolidityByExamole\MultiSigWallet\img\image-20230609152149132.png)
+![image-20230609152149132](https://github.com/XuJieJJ/SolidityExample/blob/main/SolidityByExamole/MultiSigWallet/img/image-20230609152149132.png?raw=true)
 
 一次简单的交易便完成
+
