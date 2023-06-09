@@ -1,4 +1,4 @@
-# 这个文件是对所学solidity的一次实战练习!
+#solidity example#
 
 github链接[GitHub - t4sk/sol-best-practices](https://github.com/t4sk/sol-best-practices)
 
