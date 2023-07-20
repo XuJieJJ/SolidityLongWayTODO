@@ -186,19 +186,29 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         }
 
         uint amount0In = balance0 > _reserve0-amount0Out ? balance0 - (_reserve0-amount0Out) : 0;
-        uint amoutn1In = balance1 > _reserve1-amount1Out ? balance1 - (_reserve1-amount1Out) : 0;
+        uint amount1In = balance1 > _reserve1-amount1Out ? balance1 - (_reserve1-amount1Out) : 0;
 
-        require(amount0In > 0 || amoutn1In > 0 ," inputAmount not enough!!!");
+        require(amount0In > 0 || amount1In > 0 ," inputAmount not enough!!!");
         {
             uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
-            uint balance1Adjusted = balance1.mul(1000).sub(amoutn1In.mul(3));
+            uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
             require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(reserve1));
         }
 
-
+        _update(balance0, balance1, _reserve0, _reserve1);
+        emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
     }
 
+    function skim(address to) external lock{
+        address _token0 = token0;
+        address _token1 = token1;
+        _safeTranfer(_token0, to, IERC20(_token0).balanceOf(address(this)).sub(reserve0));
+        _safeTranfer(_token1, to, IERC20(_token1).balanceOf(address(this)).sub(reserve1));
+    }
 
+    function sync() external lock {
+        _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)), reserve0, reserve1);
+    }
 
 
 
