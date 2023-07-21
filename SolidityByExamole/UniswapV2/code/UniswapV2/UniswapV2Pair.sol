@@ -45,9 +45,10 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         
     }
     //////转账 private/////
+    //转账value即为流动性
     function _safeTranfer(address token,address to ,uint value) private {
         (bool success,bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR, to,value));
-        require(success&&  (data.length==0 ||abi.decode(data,(bool)) ),"UniswapV2:TRANSFER_FAILED");
+        require(success &&  (data.length==0 ||abi.decode(data,(bool)) ),"UniswapV2:TRANSFER_FAILED");
 
     }
 
@@ -77,28 +78,35 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     }
 //更新操作，前两个为更新后的两个token储备量，后两个为更新前的储备量
     function _update(uint balance0,uint balance1,uint112 _reserve0,uint112 _reserve1)private {
+       // 需要 balance0 和 blanace1 不超过 uint112 的上限
         require(balance0 <=uint112(-1) && balance1 <= uint112(-1), "UniswapV2:OVERFLOW" );
         uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);//只取后32位
         uint32 timeElapsed = blockTimestamp - blockTimestampLast;
         if(timeElapsed > 0 && _reserve0!=0 && _reserve1 != 0){
             //记录价格累计值 两个价格用来计算swap
+            // 对 _reserve1 / _reserve0 * timeElapsed 的结果在 price0CumulativeLast 上累加
             price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;
+            // 对 _reserve0 / _reserve1 * timeElapsed 的结果在 price1CumulativeLast 上累加
             price1CumulativeLast += uint(UQ112x112.encode(_reserve0).uqdiv(_reserve1)) * timeElapsed;
 
-        }
+        }// reserve0 = balance0 ， reserve0 = balance0
         reserve0 = uint112(balance0);
         reserve1 = uint112(balance1);
 
         blockTimestampLast = blockTimestamp;
-        emit Sync(reserve0, reserve1);
+        emit Sync(reserve0, reserve1);// reserve0 = balance0
     }
 
+// token0和token1 的资金池库存数量 feeOn 是否开启手续费
     function _mintFee(uint112 _reserve0,uint112 _reserve1 )private  returns (bool feeOn){
+        //获取手续费接收地址feeTo
         address feeTo = IUniswapV2Factory(factory).feeTo();
+        //如果feeTo不是0地址，feeOn = true
         feeOn = feeTo != address(0);
         uint _kLast = kLast;
         if(feeOn){
             if(_kLast != 0){
+                
                 uint rootK = Math.sqrt(uint(_reserve0).mul(_reserve1));
                 uint rootKLast = Math.sqrt(_kLast);
                      if(rootK > rootKLast){
@@ -119,12 +127,13 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         (uint112 _reserve0,uint112 _reserve1,) = getReserves();//获取两个token的的储备量
         uint balance0 = IERC20(token0).balanceOf(address(this));
         uint balance1 = IERC20(token1).balanceOf(address(this));//当前合约两个token余额
-        uint amount0 = balance0.sub(_reserve0);
+        uint amount0 = balance0.sub(_reserve0);//获取用户的质押余额
         uint amount1 = balance1.sub(_reserve1);//合约中两个token的可用余额，及未被锁定的资产数量
-        
+        //调用_mintFee(),发送手续费
         bool feeOn = _mintFee(_reserve0, _reserve1);
         uint _totalSupply = totalSupply;
         if(_totalSupply == 0 ){
+            //如果_totalSupply为0，LP 代币数量 liquidity = ✔(amount0 * amount1) - MINIMUM_LIQUIDITY
             liquidity = Math.sqrt(amount0.mul(amount1).sub(MINIMUM_LIQUIDITY));//liquidity = √(amount0*amount1) - MINIMUM_LIQUIDITY
             _mint(address(0), MINIMUM_LIQUIDITY);
         }else {
@@ -184,7 +193,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         balance0 = IERC20(_token0).balanceOf(address(this));
         balance1 = IERC20(_token1).balanceOf(address(this));
         }
-
+        //在不做swap之前，balance应该和reserve相等的。通过balance和reserve的差值，可以反推出输入的代币数量：
         uint amount0In = balance0 > _reserve0-amount0Out ? balance0 - (_reserve0-amount0Out) : 0;
         uint amount1In = balance1 > _reserve1-amount1Out ? balance1 - (_reserve1-amount1Out) : 0;
 
@@ -192,7 +201,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         {
             uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
             uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
-            require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(reserve1));
+            require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(reserve1).mul(1000**2),"Uniswap:K");
         }
 
         _update(balance0, balance1, _reserve0, _reserve1);
