@@ -1,0 +1,68 @@
+{
+	"compiler": {
+		"version": "0.5.16+commit.9c3226ce"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"constant": false,
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "sender",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount0",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount1",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "uniswapV2Call",
+				"outputs": [],
+				"payable": false,
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"methods": {}
+		},
+		"userdoc": {
+			"methods": {}
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"interface/IUniswapV2Callee.sol": "IUniswapV2Callee"
+		},
+		"evmVersion": "istanbul",
+		"libraries": {},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"interface/IUniswapV2Callee.sol": {
+			"keccak256": "0xd4d8257e8ae878a09cb537e375be22f8ca39b6be2003190138132bf1c9ced6b2",
+			"urls": [
+				"bzz-raw://53fbb58b1807cdada3acf9309690b76eaaac85a9201afaa054a8be3313987509",
+				"dweb:/ipfs/QmSbsamCyFjxv9tMVLfiPMW5Yo72C41z8UwAkV7V2PXE7e"
+			]
+		}
+	},
+	"version": 1
+}

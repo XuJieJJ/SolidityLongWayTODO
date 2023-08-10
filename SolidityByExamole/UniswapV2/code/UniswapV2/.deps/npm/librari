@@ -1,0 +1,8 @@
+/**
+ * Minified by jsDelivr using Terser v5.15.1.
+ * Original file: /npm/librari@1.0.2/lib/librari.js
+ *
+ * Do NOT use SRI with dynamically generated files! More information: https://www.jsdelivr.com/using-sri-with-dynamic-files
+ */
+let lib={};module.exports.require=function(e){if("object"!=typeof e)throw new TypeError("Invalid argument");for(mod in e)lib[mod]=e[mod],global[mod]=require(e[mod])},module.exports.reload=function(){for(let e in lib)delete require.cache[require.resolve(lib[e])],global[e]=require(lib[e])};
+//# sourceMappingURL=/sm/6cbb2aebcf97e93d805216775674066c376309d5ec84ee6e29936e554f4476ed.map

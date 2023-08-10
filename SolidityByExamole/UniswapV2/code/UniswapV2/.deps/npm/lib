@@ -1,0 +1,8 @@
+/**
+ * Minified by jsDelivr using Terser v5.15.1.
+ * Original file: /npm/lib@5.0.1/lib.js
+ *
+ * Do NOT use SRI with dynamically generated files! More information: https://www.jsdelivr.com/using-sri-with-dynamic-files
+ */
+const appendLibPath=require("./lib/append.js"),parseParameters=require("./lib/parse.js"),executeLocal=require("./lib/local.js"),executeRemote=require("./lib/remote.js");module.exports=function(){let e=(r,t,a)=>(r=Object.assign(t||{},r||{}),a=a||[],new Proxy((function(){let l=new Error("GrabStackError"),n=e=>[].concat(e,(l.stack||"").split("\n").slice(2).join("\n").replace(/at (eval|module\.exports) \(/gi,`at ${a.join(".")} (`)).filter((e=>!!e)).join("\n"),c=[].slice.call(arguments),i=!a[0];if(0===a.length)return e(r,("object"==typeof c[0]?c[0]:null)||{},a);if(1!==a.length||i){let e=parseParameters(a,c),r=(i?executeLocal:executeRemote).bind(null,t,a,e.params);return e.callback?r(e.callback,n):new Promise(((e,t)=>r(((r,a)=>r?t(r):e(a)),n)))}return e(r,{keys:"object"==typeof c[0]?c[0]:{}},a)}),{get:(t,l)=>e(r,{},appendLibPath(a,l))}));return e()}();
+//# sourceMappingURL=/sm/37a456639df95dce0dd87a6f2425f76430503d02e489751501d8da684c18bb88.map

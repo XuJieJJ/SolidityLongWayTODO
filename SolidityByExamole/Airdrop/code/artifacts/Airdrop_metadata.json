@@ -1,0 +1,131 @@
+{
+	"compiler": {
+		"version": "0.8.18+commit.87f61d96"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "uint256[]",
+						"name": "amounts",
+						"type": "uint256[]"
+					}
+				],
+				"name": "getSum",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "sum",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "pure",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address payable[]",
+						"name": "_address",
+						"type": "address[]"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "_amounts",
+						"type": "uint256[]"
+					}
+				],
+				"name": "multiTransferETH",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_token",
+						"type": "address"
+					},
+					{
+						"internalType": "address[]",
+						"name": "_address",
+						"type": "address[]"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "_amounts",
+						"type": "uint256[]"
+					}
+				],
+				"name": "multiTransferToken",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					}
+				],
+				"name": "withdrawFromFailList",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"multiTransferETH(address[],uint256[])": {
+					"notice": "向多个地址转账ETH"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"code/Airdrop.sol": "Airdrop"
+		},
+		"evmVersion": "paris",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"code/Airdrop.sol": {
+			"keccak256": "0x9eef1682d102fbebde13da2d0be9922c68b298a7eaf29e0856caa9d9afb0cf14",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://a56790a176ff6ea1279acc2cf2de3a03417fe2156a0efed77fc94f871a3bda62",
+				"dweb:/ipfs/QmVJncGbNJgjZyYbkkKkrz43T7EWebgxXz3fy5uB1PUqQk"
+			]
+		},
+		"code/IERC20.sol": {
+			"keccak256": "0x45e083595645ce346eca36a83c5aea73e3955314709dadab861fa7fa091c1af3",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6910705030ee7e44f036c5de940030badc4d8070ce1c5ca8cfdf2f4366a693c0",
+				"dweb:/ipfs/QmfNzDH2pwu92sAsz4LdeBhx1cwauZvNUcyhMC85oVhNgb"
+			]
+		}
+	},
+	"version": 1
+}
