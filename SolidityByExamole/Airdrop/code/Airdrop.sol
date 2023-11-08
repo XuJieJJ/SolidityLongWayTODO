@@ -14,7 +14,7 @@ contract Airdrop{
     )external  {
         require(_address.length==_amounts.length,"length not conrect");// 检查：_addresses和_amounts数组的长度相等
         IERC20 token = IERC20(_token);
-        uint _amountSum = getSum(_amounts);
+        uint _amountSum = getSum(_amounts);  //
         require(
             token.allowance(msg.sender, address(this))> _amountSum,
             "need approve erc20 token"
