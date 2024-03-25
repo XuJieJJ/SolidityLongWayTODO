@@ -32,4 +32,7 @@ contract merkleproof{
             value =keccak256(abi.encodePacked(a,b));
             return value;
     }
+    function hash(address _addr) public view   returns (bytes32 ){
+            return  keccak256(abi.encodePacked((_addr)));
+    }
 }
