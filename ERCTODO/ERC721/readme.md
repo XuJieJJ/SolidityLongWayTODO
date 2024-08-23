@@ -335,7 +335,36 @@ interface IERC721Receiver {
 
 ### 5、 编写IERC721Errors错误接口
 
-`IERC721Errors`
+`IERC721Errors`定义了`8`个错误，帮助我们在实现代码业务逻辑时捕获错误异常
+
+- `ERC721InvalidOwner`
+
+转账错误时候触发，表明NFT的owner地址不合法
+
+```solidity
+    /**
+     * @dev 不合法的owner地址. 例如:address(0).
+     * 用于查询balance时候调用.
+     * param address -- owner.
+     */
+    error ERC721InvalidOwner(address owner);
+    
+```
+
+- `ERC721NonexistentToken`
+
+`tokenId`不存在时候触发
+
+```solidity
+    /**
+     * @dev 表明 `tokenId`的`owner`为address(0).
+     * param uint256 -- tokenId.
+     */
+    error ERC721NonexistentToken(uint256 tokenId);
+    
+```
+
+- `ERC721IncorrectOwner`
 
 ### 6、编写ERC721工具库
 
