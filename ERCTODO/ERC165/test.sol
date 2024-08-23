@@ -9,7 +9,7 @@ interface demo {
 
 contract test   {
 
-        /// 0x8cb5a993
+        /// 0x8cb5a993 
         bytes4 public  _selector =  bytes4(keccak256("hello()")) ^ bytes4(keccak256("say()"));
         
         /// 0x8cb5a993
