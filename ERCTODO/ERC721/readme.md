@@ -364,9 +364,295 @@ interface IERC721Receiver {
 
 - `ERC721IncorrectOwner`
 
-``
+`tokenId`对应的token所有权错误，转账时候触发
 
+```solidity
+    /**
+     * @dev 表明 `tokenId`的`owner`为发生错误.
+     * param (address,tokenId,address) -- (发送方，tokenId，NFTowner).
+     */
+    error ERC721IncorrectOwner(address sender, uint256 tokenId, address owner);
+    
+```
 
+- `ERC721InvalidSender`
+
+`token`转账错误，不合法的`sender`，多用于address(0)转账NFT
+
+```solidity
+    /**
+     * @dev 表明`sender`发送token失败
+     * param address 发生转账NFT的地址.
+     */
+    error ERC721InvalidSender(address sender);
+
+```
+
+- `ERC721InvalidReceiver`
+
+`token`转账错误，不合法的`receiver`，多用于向address(0)转账NFT
+
+```solidity
+    /**
+     * @dev 表明`receiver`接收token失败
+     * param address 接收转账NFT的地址.
+     */
+    error ERC721InvalidReceiver(address receiver);
+    
+```
+
+- `ERC721InsufficientApproval`
+
+`operator`操作账户获取授权失败，表明未被授权`tokenId`的操作权限
+
+```solidity
+    /**
+     * @dev `operater`未经授权`tokenId`，转账失败.
+     * param (address uint256) -- (操作账户，`tokenId`)
+     *
+     */
+    error ERC721InsufficientApproval(address operator, uint256 tokenId);
+
+```
+
+- `ERC721InvalidApprover`
+
+参考转账账户发生的错误，这里用于授权账户不合法,即address(0)发生授权。授权的时候触发
+
+```solidity
+    /**
+     * @dev 表明授权账户`approver`不合法，.
+     * param address -- 授权账户.
+     */
+    error ERC721InvalidApprover(address approver);
+    
+```
+
+- `ERC721InvalidOperator`
+
+操作账户不合法，即向address(0)地址授权。授权时候触发
+
+```solidity
+    /**
+     * @dev 表明操作账户`operator`不合法，.
+     * param address -- 操作账户.
+     */
+    error ERC721InvalidOperator(address operator);
+    
+```
+
+`8`个`error`，涵盖了在`NFT`发生转账、授权的时候可能遇到的错误，帮助我们在编写代码的时候捕获错误异常
+
+### 6、 实现ERC721
+
+`ERC721`主合约实现了`IERC721`，`IERC165`和`IERC721Metadata`，`IERCErrors`定义的所有功能,此外我们借助`Openzeppelin`的[Strings.sol](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol)方法帮助我们处理`uint256`类型的字符串转换问题
+
+接下来我们创建ERC721合约，导入以下接口文件
+
+```solidity
+import {IERC721} from "./IERC721.sol";
+import {IERC721Metadata} from "./IERC721Metadata.sol";
+import {IERC721Receiver} from "./IERC721Receiver.sol";
+import {IERC165} from "./IERC165.sol";
+import {IERC721Errors} from "./IERC721Errors.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+
+```
+
+#### 6.1 状态变量
+
+对比`ERC20`标准，我们同样需要使用状态变量来记录账户`NFT`信息，授权以及`token`信息
+
+```solidity
+    using  Strings for uint256;
+
+    // 代币名称
+    string private _name;
+    // 代币符号
+    string private _symbol;
+    // NFT 的owner
+    mapping (uint256  tokenId => address) private _owner;
+    // 账户拥有的的NFT数量
+    mapping (address owner => uint256) private  _balances;
+    // NFT的授权账户
+    mapping (uint256 tokenId => address) private _tokenApprovals;
+    // 账户operator 是否被授权支出 owner 的NFT，即批量授权
+    mapping (address owner => mapping (address operator => bool)) private  _operatorApprovals;
+```
+
+#### 6.2 函数
+
+- 构造函数：初始化代币名称，符号。
+
+```solidity
+    /**
+     * @dev 合约部署时实例化name 和 symbol 状态变量.
+     */
+    constructor(string memory name_ , string memory symbol_){
+        _name = name_;
+        _symbol = symbol_;
+    }
+```
+
+- `supportsInterface`
+
+查询`NFT`合约支持的接口，在调用方法之前查询目标合约是否实现相应接口，详细描述见`1.3`
+
+```solidity
+    /**
+     * @dev 查询接口ID.
+     */
+    function supportsInterface(bytes4 interfaceId)public  pure returns (bool){
+        return 
+            interfaceId == type(IERC721).interfaceId ||
+            interfaceId == type(IERC721Metadata).interfaceId ||
+            interfaceId == type(IERC165).interfaceId;
+    }
+    
+```
+
+- `balanceOf`
+
+查询`owner`持有的代币数量
+
+```solidity
+    /**
+     * @dev 查询用户持仓数量.
+     */
+    function balanceOf(address owner) public  view returns (uint256){
+        //地址校验
+        if (owner == address(0)){
+            revert ERC721InvalidOwner(address(0));
+        }
+        return _balances[owner];
+    }
+    
+```
+
+- `ownerOf()`
+
+查询`tokenId`的所有者
+
+```solidity
+    /**
+     * @dev 查询NFT的所有者.
+     */
+    function _ownerOf(uint256 tokenId)internal  view returns (address){
+        //判断NFT是否存在
+        address owner = _owner[tokenId];
+        if (owner == address(0)){
+            revert ERC721NonexistentToken(tokenId);
+        }
+        return owner;
+    }
+    /**
+     * @dev 供外部调用，逻辑处理交给_ownerOf().
+     */
+    function ownerOf(uint256 tokenId)public  view  returns (address){
+        return _ownerOf(tokenId);
+    }
+```
+
+- `name()`和`symbol()`
+
+查询NFT的名称和代号
+
+```solidity
+    /**
+     * @dev 查询名称.
+     */
+    function name()public  view returns (string memory){
+        return _name;
+    }
+    /**
+     * @dev 查询代号.
+     */
+    function symbol()public  view  returns (string memory){
+        return  _symbol;
+    }
+```
+
+- `tokenURI()`和`_baseURI()`
+
+查询`NFT`的`URI`元数据
+
+```solidity
+    /**
+     * @dev 查询NFT扩展对应外部资源.
+     */
+    function tokenURI(uint256 tokenId) public  view  returns (string memory){
+        //这里做NFT校验
+        _ownerOf(tokenId);
+        //获取基础URI
+        string memory baseURI = _baseURI();
+
+        //拼接{baseURI} + {tokenId}
+        return bytes(baseURI).length > 0 ? string.concat(baseURI,tokenId.toString()) : "";
+    }
+
+    /**
+     * @dev 用作{tokenURI} 的基础 URI 
+     * 如果设置：
+     * 每个{token}的URI 由`baseURI` + `tokenId`拼接而成
+     *   
+     * 这里默认为 "" 支持后续继承重载
+     */
+    function _baseURI()internal pure virtual returns (string memory){
+        return  "";
+    } 
+```
+
+- `_getApproved()`
+
+查询`NFT`的授权地址
+
+```solidity
+    /**
+     * @dev 查询`tokenId` 的授权账户. 未被授权则返回address(0)
+     */
+    function _getApproved(uint256 tokenId) internal  view  returns (address){
+        return _tokenApprovals[tokenId];
+    }
+```
+
+- `_isAuthorized()`
+
+查询`tokenId`的NFT的账户操作权限
+
+```solidity
+    /**
+     * @dev 查询`spender`是否能操作`owner`的NFT
+     * 三种情况：1.spender是NFT的owner 2. spender被owner批量授权管理其NFT 3.spender被owner授权管理`tokenId`的NFT
+     */
+    function _isAuthorized(address owner ,address spender , uint256 tokenId) internal view returns (bool){
+        return 
+            spender != address(0) &&
+            (owner == spender || _operatorApprovals[owner][spender] || _getApproved(tokenId) == spender);
+    }
+```
+
+- `_checkAuthorized()`
+
+检查NFT授权情况，捕获相应错误
+
+```solidity
+    /**
+     * @dev 检查`spender`是否能操作`owner`的NFT
+     * 捕获相应错误{ERC721NonexistentToken} {ERC721InsufficientApproval}
+     */
+    function _checkAuthorized(address owner , address spender , uint256 tokenId)internal  view {
+        if (!_isAuthorized(owner, spender, tokenId)){
+            //这里的owner一般是后续外部调用： 通过`tokenId`查询得到的地址，即使用`_ownerOf()`函数得到的地址，所以非捕获的{ERC721InvalidOwner}错误
+            if (owner  == address(0)){
+                revert ERC721NonexistentToken(tokenId);
+            }else {
+                revert ERC721InsufficientApproval(spender,tokenId);
+            }
+        }
+    }
+```
+
+- `_update()`
 
 ### 6、编写ERC721工具库
 
