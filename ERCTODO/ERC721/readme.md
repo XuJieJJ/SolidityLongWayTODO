@@ -494,7 +494,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
     }
 ```
 
-- `supportsInterface`
+- `supportsInterface()`
 
 查询`NFT`合约支持的接口，在调用方法之前查询目标合约是否实现相应接口，详细描述见`1.3`
 
@@ -511,7 +511,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
     
 ```
 
-- `balanceOf`
+- `balanceOf()`
 
 查询`owner`持有的代币数量
 
@@ -529,27 +529,35 @@ import "@openzeppelin/contracts/utils/Strings.sol";
     
 ```
 
-- `ownerOf()`
+- `ownerOf()和_requireOwned()`
 
-查询`tokenId`的所有者
+查询`tokenId`的所有者,校验`NFT`是否存在
 
 ```solidity
     /**
      * @dev 查询NFT的所有者.
      */
     function _ownerOf(uint256 tokenId)internal  view returns (address){
-        //判断NFT是否存在
-        address owner = _owner[tokenId];
-        if (owner == address(0)){
-            revert ERC721NonexistentToken(tokenId);
-        }
-        return owner;
+        return _owner[tokenId];
     }
     /**
      * @dev 供外部调用，逻辑处理交给_ownerOf().
      */
     function ownerOf(uint256 tokenId)public  view  returns (address){
-        return _ownerOf(tokenId);
+        return _requireOwned(tokenId);
+    }
+    /**
+     * @dev 如果 `tokenId` 没有当前所有者（尚未铸币或已被烧毁） 交易回滚
+     * 返回 `owner`.
+     */
+    function _requireOwned(uint256 tokenId)internal view returns(address){
+        //判断NFT是否存在
+        address owner = _ownerOf(tokenId);
+        if (owner == address(0)){
+            revert ERC721NonexistentToken(tokenId);
+        }
+        return owner;
+
     }
 ```
 
@@ -582,7 +590,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
      */
     function tokenURI(uint256 tokenId) public  view  returns (string memory){
         //这里做NFT校验
-        _ownerOf(tokenId);
+        _requireOwned(tokenId);
         //获取基础URI
         string memory baseURI = _baseURI();
 
@@ -652,10 +660,648 @@ import "@openzeppelin/contracts/utils/Strings.sol";
     }
 ```
 
+- `_approve()`
+
+授权逻辑，参考`ERC20`的授权函数入参，这里同样引入`emitEvent`来区分是否需要释放授权事件
+
+```solidity
+    /**
+     * @dev 授权内部处理逻辑 emitEvent可选
+     *
+     * @param to 授权地址
+     * @param tokenId NFT id
+     * @param auth 支出账户 
+     * @param emitEvent 事件释放信号
+     */
+    function _approve(address to , uint256 tokenId , address auth , bool emitEvent)internal {
+        //地址校验
+        if (emitEvent || auth != address(0)){
+            address owner = _requireOwned(tokenId);
+            
+            //权限判断，授权账户非address(0)情况下：owner和auth不等且未获得批量授权;
+            if (auth != address(0) && owner != auth && !_operatorApprovals[owner][auth]){
+                 revert ERC721InvalidApprover(auth);
+            }
+
+            if ( emitEvent ){
+                emit  Approval(owner, to, tokenId);
+            }
+        }
+        //更新授权
+        _tokenApprovals[tokenId] = to;
+    }
+```
+
+- `_setApprovalForAll()`
+
+批量授权逻辑
+
+```solidity
+    /**
+     * @dev 批量授权owner的NFT
+     *
+     * 条件:
+     * - operator 不能是address(0).
+     *
+     *  释放{ApprovalForAll} 事件.
+     */
+    function _setApprovalForAll(address owner , address operator , bool approved) internal {
+        //地址校验
+        if (operator == address(0)){
+            revert ERC721InvalidOperator(operator);
+        }
+
+        _operatorApprovals[owner][operator] = approved;
+        emit ApprovalForAll(owner, operator, approved);
+    }
+```
+
+- `_checkOnERC721Received()`
+
+在安全转账`NFT`的时候调用，检查如果接收账户为CA则检查目标合约是否实现`IERC721Receiver`接口，提醒开发者注意合约是否能够正确处理转入合约的`NFT`，而`_checkOnERC721Received`内部检查目标合约是否返回指定的接口ID
+
+```solidity
+    /**
+     * @dev 在目标地址上调用 {IERC721Receiver-onERC721Received}数。如果
+     * 接收方不接受token转账。如果目标地址不是合约，则不执行调用。
+     *
+     * @param from 地址，代表给定token ID 的上一个所有者
+     * @param to 将接收代币的目标地址
+     * @param tokenId uint256 要传输的NFT
+     * @param data bytes 可选数据，与调用一起发送
+     */
+    function  _checkOnERC721Received(address from , address to ,uint256 tokenId ,bytes memory data)private {
+        //在 {address} 的代码，EOA为空
+        if (to.code.length > 0){
+            try IERC721Receiver(to).onERC721Received(msg.sender , from , tokenId , data) returns (bytes4 retval){
+                //校验返回值和指定ID是否一致
+                if (retval != IERC721Receiver.onERC721Received.selector){
+                    revert ERC721InvalidReceiver(to);
+                }
+            }catch (bytes memory reason ) {
+                if (reason.length == 0){
+                    revert ERC721InvalidReceiver(to);
+                }else {
+                    assembly {
+                        //这里简单介绍：
+                        //reason指向存储错误消息的指针位置
+                        //add(32,reason)指针向前移动32个字节，因为Solidity动态数组在内存存储时候，前32个字节用于存储数组的长度
+                        //这里加上32个字节，指针跳过数组长度信息，直接指向错误消息的实际内容
+
+                        //mload指令： 从内存中加载数据
+                        //从内存中reason + 32的位置开始，以mload(reason)指定的长度来返回错误消息，并终止交易
+                        revert(add(32,reason),mload(reason))
+                    }
+                }
+            }
+        }
+    }
+
+```
+
 - `_update()`
 
-### 6、编写ERC721工具库
+转账的内部处理逻辑，包含用户转账、`NFT`铸造、`NFT`销毁等，都可视作`NFT`的转账，区别在于转账账户的不同。
 
-#### 5.1 ERC721Utils 
+```solidity
+    /**
+     * @dev 将 `tokenId` 从其当前拥有者转移到 `to` 中，或者，如果当前拥有者或 `to` 是零地址，则进行铸币（或烧毁）
+     *       
+     * `auth` "参数是可选参数。如果传递的值非零地址，则此函数将检查
+     * `auth` 是`token`的所有者，或已获准对`token`进行操作（由所有者批准）
+     *
+     * 释放 {Transfer} 事件。
+     *
+     */
+    function _update(address to , uint256 tokenId , address auth)internal returns (address){
+        //获取NFT的owner
+        address from = _ownerOf(tokenId);   
 
-`ERC721Utils `提供了校验库函数，确保目标地址to能够正确接收代币，
+        //地址校验 && 检查auth是否有支出权限 
+        if (auth != address(0)) {
+            _checkAuthorized(from, auth, tokenId);
+        }
+
+        //执行转账逻辑，首先判断NFT
+        if (from != address(0)){
+            //更新授权 授权账户清除
+            _approve(address(0), tokenId, address(0), false);
+            //更新from持仓数量
+            unchecked {
+                _balances[from] -= 1;
+            }
+        }
+        //to 如果不是零地址 则代表不是销毁
+        if (to != address(0)){
+            //更新to持仓数量
+            unchecked{
+                _balances[to] += 1 ;
+            }
+        }
+        //更新NFT所有者
+        _owner[tokenId] = to;
+
+        emit Transfer(from, to, tokenId);
+
+        return  from;
+    }
+```
+
+- `_mint()`
+
+铸造`NFT`
+
+```solidity
+    /**
+     * @dev 为 `tokenId` 造币并将其传输到 `to`。
+     *
+     * 建议使用 {_safeMint}
+     *
+     * 要求：
+     *
+     * `tokenId` 必须不存在。
+     * `to` 不能是零地址。
+     *
+     * 释放 {Transfer} 事件。
+     */
+    function _mint(address to , uint256 tokenId) internal {
+        if (to == address(0)){
+            revert ERC721InvalidReceiver(address(0));
+        }
+        //判断前置NFT的Owner , 如果未铸造账户应是零地址
+        address _previousOwner = _update(to, tokenId, address(0));
+
+        if (_previousOwner != address(0) ){
+            revert ERC721InvalidSender(address(0));
+        }
+    }
+```
+
+- `_safeMint()`
+
+安全铸造`NFT`，校验接收账户的NFT处理
+
+```solidity
+    /**
+     * @dev 安全铸造NFT，接收方若为合约地址则进行接口ID校验
+     *
+     *  详细解释参考{_checkOnERC721Received}
+     */
+    function _safeMint(address to, uint256 tokenId )internal {
+        _mint(to, tokenId);
+        _checkOnERC721Received(address(0), to, tokenId, "");
+    }
+```
+
+- `_burn()`
+
+销毁`NFT`
+
+```solidity
+    /**
+     * @dev 为 `tokenId` 销毁，看作将其传输到 `address(0)`。
+     *
+     * 要求：
+     *
+     * `tokenId` 必须存在
+     *
+     * 释放 {Transfer} 事件。
+     */
+    function _burn(uint256 tokenId)internal {
+        address previousOwner = _update(address(0), tokenId, address(0));
+        if (previousOwner == address(0)){
+            revert ERC721NonexistentToken(tokenId);
+        }
+    }
+```
+
+- `transferFrom()`
+
+转账`NFT`，用户转账自己的`NFT`
+
+```solidity
+    /**
+     * @dev 将 `tokenId` 从 `from` 传输到 `to`，与 {transferFrom} 相反，这对 msg.sender 没有任何限制。
+     *
+     * 要求：
+     * -`to` 不能是零地址。
+     * -`tokenId` 必须为 `from` 所有
+     *
+     * 释放 {Transfer} 事件
+     */
+    function transferFrom(address from , address to , uint256 tokenId)public {
+        if (to == address(0)){
+             revert ERC721InvalidReceiver(address(0));
+        }
+        //执行转账逻辑
+        address previousOwner = _update(to, tokenId, msg.sender);
+        //返回NFT的owner值校验
+        //如果为address(0) 则NFT不存在
+        if (previousOwner == address(0)){
+             revert ERC721NonexistentToken(tokenId);
+        //如果owner和from不等，则转账NFT错误
+        }else if (previousOwner != from){
+            revert ERC721IncorrectOwner(from, tokenId, previousOwner);
+        }
+
+    }
+```
+
+- `safeTransferFrom()`
+
+安全转账`NFT`
+
+```solidity
+    /**
+     * @dev 安全地将 `tokenId` 令牌从 `from` 传输到 `to`，检查合约接收方,防止代币被永久锁定。
+     *
+     * `data` 是附加数据，没有指定格式，在调用 `to` 时发送。
+     *
+     * 要求：
+     *
+     * -`tokenId` 令牌必须存在并为 `from` 所有。
+     * - `to` 不能是零地址。
+     * - `from`不能是零地址。
+     * - 如果 `to` 指向一个智能合约，它必须实现 {IERC721Receiver-onERC721Received}，在安全转移时调用。
+     */
+    function safeTransferFrom(address from , address to ,uint256 tokenId)public  {
+        safeTransferFrom(from, to, tokenId, "");
+    }
+
+    /**
+     * 与[`safeTransferFrom`]相同，但多了一个`data`参数。
+     */
+    function safeTransferFrom(address from, address to,uint256 tokenId , bytes memory data)public {
+        transferFrom(from, to, tokenId);
+        _checkOnERC721Received(from, to, tokenId, data);
+    }
+```
+
+- `approve()`
+
+授权函数
+
+```solidity
+    /**
+     *  实现{IERC721}, 调用内部处理逻辑
+     *  释放 {Approval} 事件
+     */
+    function approve(address to ,uint256 tokenId)public  {
+        _approve(to, tokenId, msg.sender, true);
+    }
+```
+
+- `getApproved()`
+
+查询授权账户
+
+```solidity
+    /**
+     *  实现{IERC721-getApproved}, 调用内部处理逻辑
+     *  
+     */
+    function getApproved(uint256 tokenId)public view returns (address){
+        //确保NFT存在
+        _requireOwned(tokenId);
+
+        return _getApproved(tokenId);
+
+    }
+```
+
+- `setApprovalForAll()`
+
+进行批量授权
+
+```solidity
+    /**
+     *  实现{IERC721-setApprovalForAll}, 调用内部处理逻辑
+     *  释放 {ApprovalForAll} 事件
+     */
+    function setApprovalForAll(address operator , bool approved)public {
+        _setApprovalForAll(msg.sender, operator, approved);
+    }
+```
+
+- `isApprovedForAll()`
+
+查询`operator`是否获得`owner`账户批量授权`NFT`
+
+```solidity
+    /**
+     *  实现{IERC721-isApprovedForAll}, 调用内部处理逻辑
+     * 
+     */
+    function isApprovedForAll(address owner , address operator) public  view  returns (bool) {
+        return  _operatorApprovals[owner][operator];
+    }
+```
+
+查询NFT的外部资源文件，
+
+```solidity
+// SPDX-License-Identifier: MIT
+// by 0xAA
+pragma solidity ^0.8.21;
+
+import "./IERC165.sol";
+import "./IERC721.sol";
+import "./IERC721Receiver.sol";
+import "./IERC721Metadata.sol";
+import "./String.sol";
+
+contract ERC721 is IERC721, IERC721Metadata{
+    using Strings for uint256; // 使用String库，
+
+    // Token名称
+    string public override name;
+    // Token代号
+    string public override symbol;
+    // tokenId 到 owner address 的持有人映射
+    mapping(uint => address) private _owners;
+    // address 到 持仓数量 的持仓量映射
+    mapping(address => uint) private _balances;
+    // tokenID 到 授权地址 的授权映射
+    mapping(uint => address) private _tokenApprovals;
+    //  owner地址。到operator地址 的批量授权映射
+    mapping(address => mapping(address => bool)) private _operatorApprovals;
+
+    // 错误 无效的接收者
+    error ERC721InvalidReceiver(address receiver);
+
+    /**
+     * 构造函数，初始化`name` 和`symbol` .
+     */
+    constructor(string memory name_, string memory symbol_) {
+        name = name_;
+        symbol = symbol_;
+    }
+
+    // 实现IERC165接口supportsInterface
+    function supportsInterface(bytes4 interfaceId)
+        external
+        pure
+        override
+        returns (bool)
+    {
+        return
+            interfaceId == type(IERC721).interfaceId ||
+            interfaceId == type(IERC165).interfaceId ||
+            interfaceId == type(IERC721Metadata).interfaceId;
+    }
+
+    // 实现IERC721的balanceOf，利用_balances变量查询owner地址的balance。
+    function balanceOf(address owner) external view override returns (uint) {
+        require(owner != address(0), "owner = zero address");
+        return _balances[owner];
+    }
+
+    // 实现IERC721的ownerOf，利用_owners变量查询tokenId的owner。
+    function ownerOf(uint tokenId) public view override returns (address owner) {
+        owner = _owners[tokenId];
+        require(owner != address(0), "token doesn't exist");
+    }
+
+    // 实现IERC721的isApprovedForAll，利用_operatorApprovals变量查询owner地址是否将所持NFT批量授权给了operator地址。
+    function isApprovedForAll(address owner, address operator)
+        external
+        view
+        override
+        returns (bool)
+    {
+        return _operatorApprovals[owner][operator];
+    }
+
+    // 实现IERC721的setApprovalForAll，将持有代币全部授权给operator地址。调用_setApprovalForAll函数。
+    function setApprovalForAll(address operator, bool approved) external override {
+        _operatorApprovals[msg.sender][operator] = approved;
+        emit ApprovalForAll(msg.sender, operator, approved);
+    }
+
+    // 实现IERC721的getApproved，利用_tokenApprovals变量查询tokenId的授权地址。
+    function getApproved(uint tokenId) external view override returns (address) {
+        require(_owners[tokenId] != address(0), "token doesn't exist");
+        return _tokenApprovals[tokenId];
+    }
+     
+    // 授权函数。通过调整_tokenApprovals来，授权 to 地址操作 tokenId，同时释放Approval事件。
+    function _approve(
+        address owner,
+        address to,
+        uint tokenId
+    ) private {
+        _tokenApprovals[tokenId] = to;
+        emit Approval(owner, to, tokenId);
+    }
+
+    // 实现IERC721的approve，将tokenId授权给 to 地址。条件：to不是owner，且msg.sender是owner或授权地址。调用_approve函数。
+    function approve(address to, uint tokenId) external override {
+        address owner = _owners[tokenId];
+        require(
+            msg.sender == owner || _operatorApprovals[owner][msg.sender],
+            "not owner nor approved for all"
+        );
+        _approve(owner, to, tokenId);
+    }
+
+    // 查询 spender地址是否可以使用tokenId（需要是owner或被授权地址）
+    function _isApprovedOrOwner(
+        address owner,
+        address spender,
+        uint tokenId
+    ) private view returns (bool) {
+        return (spender == owner ||
+            _tokenApprovals[tokenId] == spender ||
+            _operatorApprovals[owner][spender]);
+    }
+
+    /*
+     * 转账函数。通过调整_balances和_owner变量将 tokenId 从 from 转账给 to，同时释放Transfer事件。
+     * 条件:
+     * 1. tokenId 被 from 拥有
+     * 2. to 不是0地址
+     */
+    function _transfer(
+        address owner,
+        address from,
+        address to,
+        uint tokenId
+    ) private {
+        require(from == owner, "not owner");
+        require(to != address(0), "transfer to the zero address");
+
+        _approve(owner, address(0), tokenId);
+
+        _balances[from] -= 1;
+        _balances[to] += 1;
+        _owners[tokenId] = to;
+
+        emit Transfer(from, to, tokenId);
+    }
+    
+    // 实现IERC721的transferFrom，非安全转账，不建议使用。调用_transfer函数
+    function transferFrom(
+        address from,
+        address to,
+        uint tokenId
+    ) external override {
+        address owner = ownerOf(tokenId);
+        require(
+            _isApprovedOrOwner(owner, msg.sender, tokenId),
+            "not owner nor approved"
+        );
+        _transfer(owner, from, to, tokenId);
+    }
+
+    /**
+     * 安全转账，安全地将 tokenId 代币从 from 转移到 to，会检查合约接收者是否了解 ERC721 协议，以防止代币被永久锁定。调用了_transfer函数和_checkOnERC721Received函数。条件：
+     * from 不能是0地址.
+     * to 不能是0地址.
+     * tokenId 代币必须存在，并且被 from拥有.
+     * 如果 to 是智能合约, 他必须支持 IERC721Receiver-onERC721Received.
+     */
+    function _safeTransfer(
+        address owner,
+        address from,
+        address to,
+        uint tokenId,
+        bytes memory _data
+    ) private {
+        _transfer(owner, from, to, tokenId);
+        _checkOnERC721Received(from, to, tokenId, _data);
+    }
+
+    /**
+     * 实现IERC721的safeTransferFrom，安全转账，调用了_safeTransfer函数。
+     */
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint tokenId,
+        bytes memory _data
+    ) public override {
+        address owner = ownerOf(tokenId);
+        require(
+            _isApprovedOrOwner(owner, msg.sender, tokenId),
+            "not owner nor approved"
+        );
+        _safeTransfer(owner, from, to, tokenId, _data);
+    }
+
+    // safeTransferFrom重载函数
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint tokenId
+    ) external override {
+        safeTransferFrom(from, to, tokenId, "");
+    }
+
+    /** 
+     * 铸造函数。通过调整_balances和_owners变量来铸造tokenId并转账给 to，同时释放Transfer事件。铸造函数。通过调整_balances和_owners变量来铸造tokenId并转账给 to，同时释放Transfer事件。
+     * 这个mint函数所有人都能调用，实际使用需要开发人员重写，加上一些条件。
+     * 条件:
+     * 1. tokenId尚不存在。
+     * 2. to不是0地址.
+     */
+    function _mint(address to, uint tokenId) internal virtual {
+        require(to != address(0), "mint to zero address");
+        require(_owners[tokenId] == address(0), "token already minted");
+
+        _balances[to] += 1;
+        _owners[tokenId] = to;
+
+        emit Transfer(address(0), to, tokenId);
+    }
+
+    // 销毁函数，通过调整_balances和_owners变量来销毁tokenId，同时释放Transfer事件。条件：tokenId存在。
+    function _burn(uint tokenId) internal virtual {
+        address owner = ownerOf(tokenId);
+        require(msg.sender == owner, "not owner of token");
+
+        _approve(owner, address(0), tokenId);
+
+        _balances[owner] -= 1;
+        delete _owners[tokenId];
+
+        emit Transfer(owner, address(0), tokenId);
+    }
+
+    // _checkOnERC721Received：函数，用于在 to 为合约的时候调用IERC721Receiver-onERC721Received, 以防 tokenId 被不小心转入黑洞。
+    function _checkOnERC721Received(address from, address to, uint256 tokenId, bytes memory data) private {
+        if (to.code.length > 0) {
+            try IERC721Receiver(to).onERC721Received(msg.sender, from, tokenId, data) returns (bytes4 retval) {
+                if (retval != IERC721Receiver.onERC721Received.selector) {
+                    revert ERC721InvalidReceiver(to);
+                }
+            } catch (bytes memory reason) {
+                if (reason.length == 0) {
+                    revert ERC721InvalidReceiver(to);
+                } else {
+                    /// @solidity memory-safe-assembly
+                    assembly {
+                        revert(add(32, reason), mload(reason))
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 实现IERC721Metadata的tokenURI函数，查询metadata。
+     */
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(_owners[tokenId] != address(0), "Token Not Exist");
+
+        string memory baseURI = _baseURI();
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
+    }
+
+    /**
+     * 计算{tokenURI}的BaseURI，tokenURI就是把baseURI和tokenId拼接在一起，需要开发重写。
+     * BAYC的baseURI为ipfs://QmeSjSinHpPnmXmspMjwiXyN6zS4E9zccariGR3jxcaWtq/ 
+     */
+    function _baseURI() internal view virtual returns (string memory) {
+        return "";
+    }
+}
+
+```
+
+### 7、 发行NFT
+
+我们来利用`ERC721`来写一个免费铸造的`NFT`：
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "./ERC721.sol";
+
+contract NFT is ERC721 {
+    uint256 public counters = 1;
+
+    constructor()ERC721("NFT","NFT") {
+
+    }
+    function mint(address to )public {
+        _mint(to, counters);
+        counters++;
+    }
+}
+```
+
+总结：ERC721的剖析我们就到这里，NFT还有很多优秀的设计模式，包括：
+
+- `ERC721Enumerable`：支持对ERC721持有的代币进行枚举；
+- `ERC721A`：实现批量铸造;
+- `Merkle`树实现铸造白名单;
+- ... 后面有时间再更新吧
+
+参考：
+
+[EIP 721](https://learnblockchain.cn/docs/eips/eip-721.html#简要说明)
+
+[Openzeppelin-contracts--ERC721](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v5.0/contracts/token/ERC721/ERC721.sol)
+
+完整项目代码见：[SolidityLongWayTODO/ERCTODO](https://github.com/XuJieJJ/SolidityLongWayTODO/tree/main/ERCTODO)
